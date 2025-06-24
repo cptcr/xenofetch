@@ -37,16 +37,25 @@ jobs:
     - name: Update version in files
       run: |
         VERSION=${{ steps.version.outputs.VERSION }}
-        sed -i "s/Version: [0-9.]\+/Version: $VERSION/g" DEBIAN/control
-        sed -i "s/pkgver=[0-9.]\+/pkgver=$VERSION/g" PKGBUILD
-        sed -i "s/version: '[0-9.]\+'/version: '$VERSION'/g" snap/snapcraft.yaml
-        sed -i "s/<version>[0-9.]\+<\/version>/<version>$VERSION<\/version>/g" xenofetch.nuspec
-        sed -i "s/VERSION=\"[0-9.]\+\"/VERSION=\"$VERSION\"/g" build-packages.sh
-        sed -i "s/XENOFETCH_VERSION=\"[0-9.]\+\"/XENOFETCH_VERSION=\"$VERSION\"/g" xenofetch.sh
-        sed -i "s/# Version: [0-9.]\+/# Version: $VERSION/g" xenofetch.sh
-        sed -i "s/version \"[0-9.]\+\"/version \"$VERSION\"/g" xenofetch.rb
-        sed -i "s/v[0-9.]\+\.tar\.gz/v$VERSION.tar.gz/g" xenofetch.rb
-        sed -i "s/v[0-9.]\+\.zip/v$VERSION.zip/g" chocolateyinstall.ps1
+        
+        # Update version in existing files only
+        [ -f "DEBIAN/control" ] && sed -i "s/Version: [0-9.]\+/Version: $VERSION/g" DEBIAN/control
+        [ -f "PKGBUILD" ] && sed -i "s/pkgver=[0-9.]\+/pkgver=$VERSION/g" PKGBUILD
+        [ -f "snap/snapcraft.yaml" ] && sed -i "s/version: '[0-9.]\+'/version: '$VERSION'/g" snap/snapcraft.yaml
+        [ -f "xenofetch.nuspec" ] && sed -i "s/<version>[0-9.]\+<\/version>/<version>$VERSION<\/version>/g" xenofetch.nuspec
+        [ -f "build-packages.sh" ] && sed -i "s/VERSION=\"[0-9.]\+\"/VERSION=\"$VERSION\"/g" build-packages.sh
+        [ -f "xenofetch.sh" ] && {
+          sed -i "s/XENOFETCH_VERSION=\"[0-9.]\+\"/XENOFETCH_VERSION=\"$VERSION\"/g" xenofetch.sh
+          sed -i "s/# Version: [0-9.]\+/# Version: $VERSION/g" xenofetch.sh
+        }
+        [ -f "main.sh" ] && sed -i "s/# Version: [0-9.]\+/# Version: $VERSION/g" main.sh
+        [ -f "xenofetch.rb" ] && {
+          sed -i "s/version \"[0-9.]\+\"/version \"$VERSION\"/g" xenofetch.rb
+          sed -i "s/v[0-9.]\+\.tar\.gz/v$VERSION.tar.gz/g" xenofetch.rb
+        }
+        [ -f "chocolateyinstall.ps1" ] && sed -i "s/v[0-9.]\+\.zip/v$VERSION.zip/g" chocolateyinstall.ps1
+        
+        echo "Version updated to $VERSION in all existing files"
 
     - name: Build Debian package
       run: |
@@ -59,14 +68,14 @@ jobs:
         cp DEBIAN/control build/debian/DEBIAN/
         cp DEBIAN/postinst build/debian/DEBIAN/
         cp xenofetch.sh build/debian/usr/bin/xenofetch
-        cp main.sh build/debian/usr/share/xenofetch/
+        [ -f "main.sh" ] && cp main.sh build/debian/usr/share/xenofetch/
         cp README.md build/debian/usr/share/doc/xenofetch/
-        cp LICENSE build/debian/usr/share/doc/xenofetch/
-        cp xenofetch.1 build/debian/usr/share/man/man1/
+        [ -f "LICENSE" ] && cp LICENSE build/debian/usr/share/doc/xenofetch/
+        [ -f "xenofetch.1" ] && cp xenofetch.1 build/debian/usr/share/man/man1/
         
         chmod 755 build/debian/DEBIAN/postinst
         chmod 755 build/debian/usr/bin/xenofetch
-        chmod 644 build/debian/usr/share/xenofetch/main.sh
+        [ -f "build/debian/usr/share/xenofetch/main.sh" ] && chmod 644 build/debian/usr/share/xenofetch/main.sh
         
         dpkg-deb --build build/debian xenofetch_${{ steps.version.outputs.VERSION }}_all.deb
 
@@ -79,8 +88,12 @@ jobs:
 
     - name: Update PKGBUILD with SHA256
       run: |
-        SHA256=$(sha256sum xenofetch-${{ steps.version.outputs.VERSION }}.tar.gz | cut -d' ' -f1)
-        sed -i "s/sha256sums=('SKIP')/sha256sums=('$SHA256')/" PKGBUILD
+        if [ -f "PKGBUILD" ]; then
+          SHA256=$(sha256sum xenofetch-${{ steps.version.outputs.VERSION }}.tar.gz | cut -d' ' -f1)
+          sed -i "s/sha256sums=('SKIP')/sha256sums=('$SHA256')/" PKGBUILD
+        else
+          echo "PKGBUILD not found, skipping update"
+        fi
 
     - name: Install Snapcraft
       run: |
@@ -88,34 +101,55 @@ jobs:
 
     - name: Build Snap package
       run: |
-        snapcraft --use-lxd
+        if [ -f "snap/snapcraft.yaml" ]; then
+          snapcraft --use-lxd
+        else
+          echo "snap/snapcraft.yaml not found, skipping Snap build"
+        fi
       continue-on-error: true
 
     - name: Create Chocolatey package structure
       run: |
-        mkdir -p chocolatey/tools
-        cp xenofetch.nuspec chocolatey/
-        cp chocolateyinstall.ps1 chocolatey/tools/
-        
-        # Update checksum in chocolateyinstall.ps1
-        ZIP_URL="https://github.com/${{ github.repository }}/archive/v${{ steps.version.outputs.VERSION }}.zip"
-        wget -q "$ZIP_URL" -O "xenofetch-${{ steps.version.outputs.VERSION }}.zip"
-        CHECKSUM=$(sha256sum "xenofetch-${{ steps.version.outputs.VERSION }}.zip" | cut -d' ' -f1)
-        sed -i "s/\$checksum = 'SKIP'/\$checksum = '$CHECKSUM'/g" chocolatey/tools/chocolateyinstall.ps1
-        rm "xenofetch-${{ steps.version.outputs.VERSION }}.zip"
+        if [ -f "xenofetch.nuspec" ] && [ -f "chocolateyinstall.ps1" ]; then
+          mkdir -p chocolatey/tools
+          cp xenofetch.nuspec chocolatey/
+          cp chocolateyinstall.ps1 chocolatey/tools/
+          
+          # Update checksum in chocolateyinstall.ps1
+          ZIP_URL="https://github.com/${{ github.repository }}/archive/v${{ steps.version.outputs.VERSION }}.zip"
+          wget -q "$ZIP_URL" -O "xenofetch-${{ steps.version.outputs.VERSION }}.zip"
+          CHECKSUM=$(sha256sum "xenofetch-${{ steps.version.outputs.VERSION }}.zip" | cut -d' ' -f1)
+          sed -i "s/\$checksum = 'SKIP'/\$checksum = '$CHECKSUM'/g" chocolatey/tools/chocolateyinstall.ps1
+          rm "xenofetch-${{ steps.version.outputs.VERSION }}.zip"
+        else
+          echo "Chocolatey files not found, skipping Chocolatey package"
+        fi
 
     - name: Create Homebrew formula with SHA256
       run: |
-        # Calculate SHA256 for Homebrew
-        SHA256=$(sha256sum xenofetch-${{ steps.version.outputs.VERSION }}.tar.gz | cut -d' ' -f1)
-        sed -i "s/sha256 \"PLACEHOLDER_SHA256_WILL_BE_UPDATED_ON_RELEASE\"/sha256 \"$SHA256\"/" xenofetch.rb
-        cp xenofetch.rb xenofetch_${{ steps.version.outputs.VERSION }}.rb
+        if [ -f "xenofetch.rb" ]; then
+          # Calculate SHA256 for Homebrew
+          SHA256=$(sha256sum xenofetch-${{ steps.version.outputs.VERSION }}.tar.gz | cut -d' ' -f1)
+          sed -i "s/sha256 \"PLACEHOLDER_SHA256_WILL_BE_UPDATED_ON_RELEASE\"/sha256 \"$SHA256\"/" xenofetch.rb
+          cp xenofetch.rb xenofetch_${{ steps.version.outputs.VERSION }}.rb
+        else
+          echo "xenofetch.rb not found, skipping Homebrew formula"
+        fi
 
     - name: Generate checksums
       run: |
-        sha256sum *.deb *.tar.gz *.snap 2>/dev/null > checksums.txt || true
+        # Generate checksums for all built packages
+        ls -la
+        sha256sum *.deb *.tar.gz *.snap *.rb 2>/dev/null > checksums.txt || {
+          # If no files match, create checksums for what exists
+          > checksums.txt
+          [ -f "*.deb" ] && sha256sum *.deb >> checksums.txt
+          [ -f "*.tar.gz" ] && sha256sum *.tar.gz >> checksums.txt
+          [ -f "*.snap" ] && sha256sum *.snap >> checksums.txt
+          [ -f "*.rb" ] && sha256sum *.rb >> checksums.txt
+        }
         echo "=== Checksums ===" 
-        cat checksums.txt
+        cat checksums.txt || echo "No checksums generated"
 
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
