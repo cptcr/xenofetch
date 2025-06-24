@@ -1,0 +1,130 @@
+.TH XENOFETCH 1 "1.0.0" "xenofetch man page"
+.SH NAME
+xenofetch \- enhanced system information display tool
+.SH SYNOPSIS
+.B xenofetch
+[\fB\-\-no\-logo\fR]
+[\fB\-\-json\fR]
+[\fB\-h\fR|\fB\-\-help\fR]
+.SH DESCRIPTION
+.B xenofetch
+is a powerful command-line system information tool that displays detailed hardware and software information in beautifully styled tables. It provides comprehensive system diagnostics including CPU, memory, storage, network, and process information with colorful output.
+.SH OPTIONS
+.TP
+.BR \-\-no\-logo
+Hide the distribution logo in the output
+.TP
+.BR \-\-json
+Output system information in JSON format (not yet implemented)
+.TP
+.BR \-h ", " \-\-help
+Display help message and exit
+.SH FEATURES
+.IP \[bu] 2
+Beautiful colored output with gradient effects
+.IP \[bu] 2
+Comprehensive system information display
+.IP \[bu] 2
+Cross-platform compatibility (Linux, macOS, Windows via WSL)
+.IP \[bu] 2
+Lightweight and fast
+.IP \[bu] 2
+Distribution-specific color schemes
+.IP \[bu] 2
+Real-time system monitoring
+.IP \[bu] 2
+Network diagnostics
+.IP \[bu] 2
+Process analysis
+.IP \[bu] 2
+Temperature monitoring (requires lm-sensors)
+.SH EXAMPLES
+.TP
+.B xenofetch
+Display full system information with distribution logo
+.TP
+.B xenofetch --no-logo
+Display system information without the distribution logo
+.SH FILES
+.TP
+.I /usr/bin/xenofetch
+Main executable script
+.TP
+.I /usr/share/xenofetch/main.sh
+Core logic file
+.TP
+.I /usr/share/doc/xenofetch/README.md
+Documentation
+.SH ENVIRONMENT
+.TP
+.B TERM
+Terminal type, used for color support detection
+.TP
+.B DISPLAY
+X11 display, used for GUI-related information detection
+.SH DEPENDENCIES
+.SS Required:
+.IP \[bu] 2
+bash (version 4.0 or higher)
+.IP \[bu] 2
+coreutils
+.IP \[bu] 2
+grep
+.IP \[bu] 2
+awk (gawk or mawk)
+.IP \[bu] 2
+sed
+.SS Optional:
+.IP \[bu] 2
+lspci - for GPU information
+.IP \[bu] 2
+curl - for public IP detection
+.IP \[bu] 2
+lm-sensors - for temperature monitoring
+.IP \[bu] 2
+xrandr - for display resolution detection
+.IP \[bu] 2
+net-tools - for additional network information
+.SH EXIT STATUS
+.TP
+.B 0
+Successful execution
+.TP
+.B 1
+General error (e.g., missing files, invalid options)
+.SH AUTHOR
+Written by Anton Schmidt (cptcr).
+.PP
+GitHub: https://github.com/cptcr
+.br
+Email: cptcr@proton.me
+.br
+Website: https://cptcr.dev
+.SH REPORTING BUGS
+Report bugs to: https://github.com/cptcr/xenofetch/issues
+.PP
+Please include:
+.IP \[bu] 2
+Your operating system and version
+.IP \[bu] 2
+The output of 'xenofetch --help'
+.IP \[bu] 2
+Any error messages you encountered
+.SH COPYRIGHT
+Copyright \(co 2025 Anton Schmidt (Cptcr).
+.br
+License: MIT
+.PP
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+.SH SEE ALSO
+.BR neofetch (1),
+.BR screenfetch (1),
+.BR inxi (1),
+.BR lscpu (1),
+.BR lspci (8),
+.BR sensors (1)
+.PP
+Full documentation at: https://github.com/cptcr/xenofetch
+.PP
+Project homepage: https://cptcr.dev

@@ -1,0 +1,28 @@
+Package: xenofetch
+Version: 1.0.0
+Section: utils
+Priority: optional
+Architecture: all
+Depends: bash (>= 4.0), coreutils, grep, gawk | mawk, sed, procps
+Recommends: lm-sensors, pciutils, net-tools, curl, hostname
+Suggests: lspci, xrandr
+Maintainer: Anton Schmidt <cptcr@proton.me>
+Description: Enhanced system information display tool
+ Xenofetch is a powerful command-line system information tool that displays
+ detailed hardware and software information in beautifully styled tables.
+ It provides comprehensive system diagnostics including CPU, memory, storage,
+ network, and process information with colorful output.
+ .
+ Features:
+  * Beautiful colored output with gradient effects
+  * Comprehensive system information display
+  * Cross-platform compatibility
+  * Lightweight and fast
+  * Customizable styling options
+  * Real-time system monitoring
+  * Network diagnostics
+  * Temperature monitoring (requires lm-sensors)
+  * Process analysis
+Homepage: https://github.com/cptcr/xenofetch
+Vcs-Git: https://github.com/cptcr/xenofetch.git
+Vcs-Browser: https://github.com/cptcr/xenofetch

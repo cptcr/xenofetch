@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>xenofetch</id>
+    <version>1.0.0</version>
+    <packageSourceUrl>https://github.com/cptcr/xenofetch</packageSourceUrl>
+    <owners>cptcr</owners>
+    <title>Xenofetch</title>
+    <authors>Anton Schmidt (cptcr)</authors>
+    <projectUrl>https://github.com/cptcr/xenofetch</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/cptcr/xenofetch/main/icon.png</iconUrl>
+    <copyright>2025 Anton Schmidt (Cptcr)</copyright>
+    <licenseUrl>https://github.com/cptcr/xenofetch/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/cptcr/xenofetch</projectSourceUrl>
+    <docsUrl>https://github.com/cptcr/xenofetch/blob/main/README.md</docsUrl>
+    <bugTrackerUrl>https://github.com/cptcr/xenofetch/issues</bugTrackerUrl>
+    <tags>system-info cli terminal bash powershell cross-platform hardware software monitoring</tags>
+    <summary>Enhanced system information display tool with beautiful styling</summary>
+    <description>
+Xenofetch is a powerful command-line system information tool that displays detailed hardware and software information in beautifully styled tables. It supports multiple operating systems and provides comprehensive system diagnostics including CPU, memory, storage, network, and process information.
+
+## Features
+- Beautiful colored output with gradient effects
+- Comprehensive system information display
+- Cross-platform compatibility (Windows, macOS, Linux)
+- Lightweight and fast
+- Customizable styling options
+- Real-time system monitoring
+- Network diagnostics
+- Temperature monitoring support
+- Process analysis
+
+## Requirements
+On Windows, Xenofetch requires a bash environment such as:
+- Windows Subsystem for Linux (WSL) - Recommended
+- Git Bash (included with Git for Windows)
+- MSYS2
+
+## Usage
+After installation, simply run:
+```
+xenofetch
+```
+
+For more options:
+```
+xenofetch --help
+```
+    </description>
+    <releaseNotes>https://github.com/cptcr/xenofetch/releases/tag/v1.0.0</releaseNotes>
+    <dependencies>
+      <!-- No hard dependencies, but bash environment is required -->
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

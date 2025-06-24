@@ -1,0 +1,269 @@
+name: Build and Release Packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-packages:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y dpkg-dev build-essential
+
+    - name: Get version
+      id: version
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/v}
+        else
+          VERSION="dev-$(git rev-parse --short HEAD)"
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Building version: $VERSION"
+
+    - name: Update version in files
+      run: |
+        VERSION=${{ steps.version.outputs.VERSION }}
+        sed -i "s/Version: [0-9.]\+/Version: $VERSION/g" DEBIAN/control
+        sed -i "s/pkgver=[0-9.]\+/pkgver=$VERSION/g" PKGBUILD
+        sed -i "s/version: '[0-9.]\+'/version: '$VERSION'/g" snap/snapcraft.yaml
+        sed -i "s/<version>[0-9.]\+<\/version>/<version>$VERSION<\/version>/g" xenofetch.nuspec
+        sed -i "s/VERSION=\"[0-9.]\+\"/VERSION=\"$VERSION\"/g" build-packages.sh
+        sed -i "s/XENOFETCH_VERSION=\"[0-9.]\+\"/XENOFETCH_VERSION=\"$VERSION\"/g" xenofetch.sh
+        sed -i "s/# Version: [0-9.]\+/# Version: $VERSION/g" xenofetch.sh
+        sed -i "s/version \"[0-9.]\+\"/version \"$VERSION\"/g" xenofetch.rb
+        sed -i "s/v[0-9.]\+\.tar\.gz/v$VERSION.tar.gz/g" xenofetch.rb
+        sed -i "s/v[0-9.]\+\.zip/v$VERSION.zip/g" chocolateyinstall.ps1
+
+    - name: Build Debian package
+      run: |
+        mkdir -p build/debian/DEBIAN
+        mkdir -p build/debian/usr/bin
+        mkdir -p build/debian/usr/share/doc/xenofetch
+        mkdir -p build/debian/usr/share/xenofetch
+        mkdir -p build/debian/usr/share/man/man1
+        
+        cp DEBIAN/control build/debian/DEBIAN/
+        cp DEBIAN/postinst build/debian/DEBIAN/
+        cp xenofetch.sh build/debian/usr/bin/xenofetch
+        cp main.sh build/debian/usr/share/xenofetch/
+        cp README.md build/debian/usr/share/doc/xenofetch/
+        cp LICENSE build/debian/usr/share/doc/xenofetch/
+        cp xenofetch.1 build/debian/usr/share/man/man1/
+        
+        chmod 755 build/debian/DEBIAN/postinst
+        chmod 755 build/debian/usr/bin/xenofetch
+        chmod 644 build/debian/usr/share/xenofetch/main.sh
+        
+        dpkg-deb --build build/debian xenofetch_${{ steps.version.outputs.VERSION }}_all.deb
+
+    - name: Build Arch tarball
+      run: |
+        tar -czf xenofetch-${{ steps.version.outputs.VERSION }}.tar.gz \
+          --exclude="build" --exclude=".git" --exclude=".github" \
+          --transform "s,^,xenofetch-${{ steps.version.outputs.VERSION }}/," \
+          .
+
+    - name: Update PKGBUILD with SHA256
+      run: |
+        SHA256=$(sha256sum xenofetch-${{ steps.version.outputs.VERSION }}.tar.gz | cut -d' ' -f1)
+        sed -i "s/sha256sums=('SKIP')/sha256sums=('$SHA256')/" PKGBUILD
+
+    - name: Install Snapcraft
+      run: |
+        sudo snap install snapcraft --classic
+
+    - name: Build Snap package
+      run: |
+        snapcraft --use-lxd
+      continue-on-error: true
+
+    - name: Create Chocolatey package structure
+      run: |
+        mkdir -p chocolatey/tools
+        cp xenofetch.nuspec chocolatey/
+        cp chocolateyinstall.ps1 chocolatey/tools/
+        
+        # Update checksum in chocolateyinstall.ps1
+        ZIP_URL="https://github.com/${{ github.repository }}/archive/v${{ steps.version.outputs.VERSION }}.zip"
+        wget -q "$ZIP_URL" -O "xenofetch-${{ steps.version.outputs.VERSION }}.zip"
+        CHECKSUM=$(sha256sum "xenofetch-${{ steps.version.outputs.VERSION }}.zip" | cut -d' ' -f1)
+        sed -i "s/\$checksum = 'SKIP'/\$checksum = '$CHECKSUM'/g" chocolatey/tools/chocolateyinstall.ps1
+        rm "xenofetch-${{ steps.version.outputs.VERSION }}.zip"
+
+    - name: Create Homebrew formula with SHA256
+      run: |
+        # Calculate SHA256 for Homebrew
+        SHA256=$(sha256sum xenofetch-${{ steps.version.outputs.VERSION }}.tar.gz | cut -d' ' -f1)
+        sed -i "s/sha256 \"PLACEHOLDER_SHA256_WILL_BE_UPDATED_ON_RELEASE\"/sha256 \"$SHA256\"/" xenofetch.rb
+        cp xenofetch.rb xenofetch_${{ steps.version.outputs.VERSION }}.rb
+
+    - name: Generate checksums
+      run: |
+        sha256sum *.deb *.tar.gz *.snap 2>/dev/null > checksums.txt || true
+        echo "=== Checksums ===" 
+        cat checksums.txt
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          *.deb
+          *.tar.gz
+          *.snap
+          PKGBUILD
+          xenofetch_${{ steps.version.outputs.VERSION }}.rb
+          checksums.txt
+          chocolatey/**
+        body: |
+          ## Xenofetch v${{ steps.version.outputs.VERSION }}
+
+          Enhanced system information display tool with beautiful styling.
+
+          ### Installation Instructions
+
+          #### Homebrew (macOS/Linux)
+          ```bash
+          brew tap cptcr/xenofetch
+          brew install xenofetch
+          ```
+
+          #### Chocolatey (Windows)
+          ```powershell
+          choco install xenofetch
+          ```
+          Note: Requires WSL, Git Bash, or MSYS2 on Windows
+
+          #### APT (Debian/Ubuntu)
+          ```bash
+          wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/xenofetch_${{ steps.version.outputs.VERSION }}_all.deb
+          sudo dpkg -i xenofetch_${{ steps.version.outputs.VERSION }}_all.deb
+          ```
+
+          #### Snap (Universal Linux)
+          ```bash
+          sudo snap install xenofetch
+          ```
+
+          #### Pacman (Arch Linux)
+          ```bash
+          # Using AUR helper
+          yay -S xenofetch
+
+          # Or manual installation
+          wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/PKGBUILD
+          wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/xenofetch-${{ steps.version.outputs.VERSION }}.tar.gz
+          makepkg -si
+          ```
+
+          #### Manual Installation
+          ```bash
+          curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | bash
+          ```
+
+          ### What's New
+          See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+
+          ### Checksums
+          See `checksums.txt` for SHA256 checksums of all release files.
+
+  update-homebrew-tap:
+    needs: build-packages
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Checkout Homebrew Tap
+      uses: actions/checkout@v4
+      with:
+        repository: cptcr/homebrew-xenofetch
+        token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        path: homebrew-tap
+
+    - name: Update Formula
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        
+        # Download the formula from release
+        wget -q "https://github.com/${{ github.repository }}/releases/download/v${VERSION}/xenofetch_${VERSION}.rb" \
+          -O homebrew-tap/Formula/xenofetch.rb
+        
+        cd homebrew-tap
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        git add Formula/xenofetch.rb
+        git commit -m "Update xenofetch to ${VERSION}" || echo "No changes to commit"
+        git push
+      continue-on-error: true
+
+  update-chocolatey:
+    needs: build-packages
+    runs-on: windows-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download Chocolatey package files
+      run: |
+        $version = "${{ github.ref_name }}".TrimStart('v')
+        $releaseUrl = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}"
+        
+        # Download chocolatey directory from release
+        Invoke-WebRequest -Uri "$releaseUrl/chocolatey.zip" -OutFile "chocolatey.zip" -ErrorAction SilentlyContinue
+
+    - name: Pack and Push to Chocolatey
+      env:
+        CHOCO_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+      run: |
+        if (Test-Path "chocolatey.zip") {
+          Expand-Archive -Path "chocolatey.zip" -DestinationPath "."
+        }
+        
+        cd chocolatey
+        choco pack
+        
+        if ($env:CHOCO_API_KEY) {
+          choco push *.nupkg --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY
+        } else {
+          Write-Host "Chocolatey API key not found, skipping push"
+        }
+      continue-on-error: true
+
+  create-snap-release:
+    needs: build-packages
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Download Snap package
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        wget -q "https://github.com/${{ github.repository }}/releases/download/v${VERSION}/xenofetch_${VERSION}_amd64.snap" || true
+
+    - name: Publish to Snap Store
+      env:
+        SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
+      run: |
+        if [ -f "xenofetch_*.snap" ]; then
+          sudo snap install snapcraft --classic
+          snapcraft upload xenofetch_*.snap --release=stable
+        else
+          echo "Snap package not found, skipping upload"
+        fi
+      continue-on-error: true

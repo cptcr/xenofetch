@@ -1,0 +1,73 @@
+name: xenofetch
+base: core22
+version: '1.0.0'
+summary: Enhanced system information display tool
+description: |
+  Xenofetch is a powerful command-line system information tool that displays
+  detailed hardware and software information in beautifully styled tables.
+  It provides comprehensive system diagnostics including CPU, memory, storage,
+  network, and process information with colorful output.
+
+  Features:
+  - Beautiful colored output with gradient effects
+  - Comprehensive system information display
+  - Cross-platform compatibility
+  - Lightweight and fast
+  - Customizable styling options
+  - Real-time system monitoring
+  - Network diagnostics
+  - Temperature monitoring
+  - Process analysis
+
+grade: stable
+confinement: strict
+
+apps:
+  xenofetch:
+    command: bin/xenofetch
+    plugs:
+      - network
+      - network-bind
+      - system-observe
+      - hardware-observe
+      - mount-observe
+      - process-control
+      - network-observe
+      - home
+
+parts:
+  xenofetch:
+    plugin: dump
+    source: .
+    organize:
+      xenofetch.sh: bin/xenofetch
+      main.sh: share/xenofetch/main.sh
+    stage:
+      - bin/xenofetch
+      - share/xenofetch/main.sh
+    prime:
+      - bin/xenofetch
+      - share/xenofetch/main.sh
+    override-build: |
+      craftctl default
+      chmod +x $CRAFT_PART_INSTALL/bin/xenofetch
+      # Update xenofetch to use the correct path for main.sh in snap
+      sed -i 's|/usr/share/xenofetch/main.sh|$SNAP/share/xenofetch/main.sh|g' $CRAFT_PART_INSTALL/bin/xenofetch
+      # Add snap-specific path
+      sed -i '/elif \[\[ -f "\/usr\/local\/share\/xenofetch\/main.sh" \]\]; then/a\
+elif [[ -f "$SNAP/share/xenofetch/main.sh" ]]; then\
+    # Snap installation\
+    source "$SNAP/share/xenofetch/main.sh"' $CRAFT_PART_INSTALL/bin/xenofetch
+    build-packages:
+      - sed
+    stage-packages:
+      - bash
+      - coreutils
+      - grep
+      - gawk
+      - sed
+      - procps
+      - pciutils
+      - curl
+      - hostname
+      - net-tools
